@@ -28,3 +28,6 @@ classifiers = [
 
 [project.urls]
 Homepage = "https://github.com/PennCompPathology/pdnl_wildcat"
+
+[project.scripts]
+pdnl_wildcat = "pdnl_wildcat:main"
