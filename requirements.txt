@@ -1,0 +1,4 @@
+torch
+torchvision
+tqdm
+pdnl_sana
