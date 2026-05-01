@@ -15,10 +15,11 @@ from PIL import Image
 from tqdm import tqdm
 
 # custom modules
+import pdnl_sana.image
 from pdnl_wildcat.unet_wildcat import resnet50_wildcat_upsample
 
 class Model:
-    def __init__(self, model_path, num_classes, kmax=0.02, alpha=0.7, num_maps=4, kmin=0.0, class_names=[], debug=None):
+    def __init__(self, model_path, num_classes, mpp=0.5045, kmax=0.02, alpha=0.7, num_maps=4, kmin=0.0, class_names=[], debug=None):
         self.model_path = model_path
         self.num_classes = num_classes
         self.debug = debug
@@ -33,6 +34,9 @@ class Model:
         self.model.eval()
         self.model = self.model.to(self.device)
 
+        # resolution that was used to train the model
+        self.mpp = mpp
+        
         # size of patch to be inputted to the model
         self.patch_raw = 448 # default: 112
 
@@ -50,7 +54,13 @@ class Model:
 
     def run(self, frame, debug=False, get_coords=False, deploy_grid=True):
         self.frame = frame
-        
+
+        # resize the frame to the target mpp
+        ds = self.mpp / self.frame.converter.mpp
+        orig_size = self.frame.size()
+        new_size = orig_size / ds
+        self.frame.resize(new_size)
+
         # size of image to process
         self.image_size = np.array(self.frame.img.shape[:2])
 
@@ -66,7 +76,7 @@ class Model:
         coords = []
         if deploy_grid:
             # loop over windows
-            for v in tqdm(range(0, self.image_size[0], self.patch_raw-self.padding_raw)): #height
+            for v in range(0, self.image_size[0], self.patch_raw-self.padding_raw): #height
                 for u in range(0, self.image_size[1], self.patch_raw-self.padding_raw): #width
 
                     # subtract the padding
@@ -147,6 +157,11 @@ class Model:
             x_cpool = self.model.spatial_pooling.class_wise(x_clas)
             x_cpool_up = torch.nn.functional.interpolate(x_cpool, scale_factor=self.wildcat_ds) #shape: [1,3,596,596]
             output = x_cpool_up[0,:,:,:].cpu().detach().numpy()
+
+        # resize the output to the original resolution
+        frame = pdnl_sana.image.Frame(output.transpose(1,2,0), level=self.frame.level, converter=self.frame.converter)
+        frame.resize(orig_size)
+        output = frame.img.transpose(2,0,1)
             
         if get_coords and deploy_grid:
             return output, coords
