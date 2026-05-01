@@ -1,4 +1,4 @@
-torch
-torchvision
-tqdm
-pdnl_sana
+pdnl_wildcat
+pdnl_process
+pdnl_aggregate
+
